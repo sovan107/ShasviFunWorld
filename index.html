@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Shasvi's Play & Learn</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fredoka for friendly, rounded toddler-safe typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Base iPad & Toddler Touch Optimizations */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            overflow: hidden;
+            overscroll-behavior: none;
+            background: linear-gradient(135deg, #FFF8E7 0%, #E0F7FA 50%, #F3E5F5 100%);
+            height: 100dvh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Floating Clouds & Background Decor */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(2deg); }
+        }
+        .animate-float {
+            animation: floatSlow 4s ease-in-out infinite;
+        }
+
+        /* Gentle Shake for Wrong Tap (Non-punitive) */
+        @keyframes gentleWobble {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            20% { transform: translateX(-10px) rotate(-4deg); }
+            40% { transform: translateX(10px) rotate(4deg); }
+            60% { transform: translateX(-7px) rotate(-2deg); }
+            80% { transform: translateX(7px) rotate(2deg); }
+        }
+        .animate-wobble {
+            animation: gentleWobble 0.55s ease-in-out;
+        }
+
+        /* Celebratory Bounce on Correct Answer */
+        @keyframes happyBounce {
+            0%, 100% { transform: scale(1); }
+            30% { transform: scale(1.18) rotate(-3deg); }
+            60% { transform: scale(0.95) rotate(3deg); }
+            80% { transform: scale(1.08); }
+        }
+        .animate-celebrate {
+            animation: happyBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Tactile 3D Toy Card Press Effect */
+        .toy-btn {
+            transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+        }
+        .toy-btn:active {
+            transform: translateY(6px) scale(0.97);
+        }
+
+        /* Pulse Ring for Speaker Button */
+        @keyframes pulseRing {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+            70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .speaker-pulse {
+            animation: pulseRing 2s infinite;
+        }
+
+        /* Confetti Canvas Overlay */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Parent Lock Progress Ring */
+        .lock-progress-circle {
+            transition: stroke-dashoffset 0.05s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between select-none relative">
+
+    <!-- Confetti Celebration Layer -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Initial Sound Unlock Overlay (Required by iPad Safari for Audio & Speech) -->
+    <div id="start-overlay" class="fixed inset-0 z-50 bg-gradient-to-br from-amber-300 via-sky-300 to-purple-300 flex flex-col items-center justify-center p-6 text-center">
+        <div class="bg-white/95 backdrop-blur-md rounded-[3rem] p-8 md:p-12 shadow-2xl border-8 border-white max-w-lg w-full flex flex-col items-center animate-float">
+            <div class="text-7xl md:text-8xl mb-4">🧸✨</div>
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-800 mb-3 tracking-tight">
+                Hi <span class="text-pink-500">Shasvi!</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-slate-600 font-medium mb-8">
+                Ready to play and learn?
+            </p>
+            <button id="start-play-btn" class="toy-btn w-full py-6 px-8 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-3xl md:text-4xl font-bold shadow-[0_10px_0_#0f766e] active:shadow-[0_4px_0_#0f766e] flex items-center justify-center gap-4 cursor-pointer">
+                <span>Let's Play!</span>
+                <span class="text-4xl">🚀</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Top Navigation & Prompt Bar -->
+    <header id="top-bar" class="w-full px-4 pt-4 pb-2 md:px-8 md:pt-6 flex items-center justify-between gap-3 z-20 hidden">
+        <!-- Parent-Lock Home Button (Hold for 1.5s to return home, prevents accidental toddler exits) -->
+        <button id="home-lock-btn" aria-label="Hold to go Home" class="relative flex items-center gap-2 bg-white/90 hover:bg-white text-slate-700 px-4 py-3 md:px-5 md:py-3.5 rounded-3xl shadow-[0_6px_0_#cbd5e1] border-2 border-slate-200 active:translate-y-1 cursor-pointer">
+            <div class="relative w-10 h-10 flex items-center justify-center">
+                <svg class="w-10 h-10 absolute inset-0" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="#e2e8f0" stroke-width="4"></circle>
+                    <circle id="lock-ring" class="lock-progress-circle" cx="20" cy="20" r="16" fill="none" stroke="#f43f5e" stroke-width="4" stroke-dasharray="100.53" stroke-dashoffset="100.53" stroke-linecap="round"></circle>
+                </svg>
+                <span class="text-xl">🏠</span>
+            </div>
+            <div class="text-left leading-tight hidden sm:block">
+                <span class="block text-sm font-bold text-slate-700">Home</span>
+                <span class="block text-[11px] font-semibold text-slate-400">Hold 1.5s</span>
+            </div>
+        </button>
+
+        <!-- Spoken Prompt Banner + Repeat Audio Button -->
+        <button id="repeat-prompt-btn" class="toy-btn flex-1 max-w-2xl bg-white/95 border-4 border-sky-300 rounded-full py-3 px-5 md:py-4 md:px-8 shadow-[0_8px_0_#7dd3fc] flex items-center justify-center gap-3 md:gap-4 cursor-pointer">
+            <span class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-sky-500 text-white flex items-center justify-center text-2xl shrink-0 speaker-pulse">
+                🔊
+            </span>
+            <span id="prompt-text" class="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800 truncate">
+                Find the Circle!
+            </span>
+        </button>
+
+        <!-- Star Reward Counter -->
+        <div class="bg-amber-100 border-4 border-amber-300 rounded-3xl px-4 py-2.5 md:px-5 md:py-3 shadow-[0_6px_0_#fcd34d] flex items-center gap-2 shrink-0">
+            <span class="text-2xl md:text-3xl">⭐</span>
+            <span id="star-count" class="text-2xl md:text-3xl font-bold text-amber-700">0</span>
+        </div>
+    </header>
+
+    <!-- MAIN VIEW CONTAINER -->
+    <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-3 md:px-8 md:py-4 flex flex-col justify-center items-center relative z-10 overflow-hidden">
+        
+        <!-- 1. HOME HUB VIEW -->
+        <section id="home-view" class="w-full h-full flex flex-col justify-center items-center">
+            <!-- Welcoming Header -->
+            <div class="text-center mb-4 md:mb-8">
+                <div class="inline-flex items-center gap-3 bg-white/90 px-6 py-2.5 rounded-full shadow-md border-2 border-pink-200 mb-2">
+                    <span class="text-2xl md:text-3xl">🌈</span>
+                    <span class="text-lg md:text-xl font-bold text-pink-500 uppercase tracking-wider">Shasvi's World</span>
+                    <span class="text-2xl md:text-3xl">🎈</span>
+                </div>
+                <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-800">
+                    What shall we play, <span class="text-indigo-600">Shasvi?</span>
+                </h1>
+            </div>
+
+            <!-- 4 Big Colorful Game Cards (2x2 Grid optimized for iPad Portrait & Landscape) -->
+            <div class="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8 w-full max-w-4xl flex-1 max-h-[68vh]">
+                
+                <!-- Card 1: Shapes -->
+                <button onclick="startGame('shapes')" class="toy-btn group bg-gradient-to-br from-rose-400 to-pink-500 rounded-[2.2rem] p-5 md:p-8 shadow-[0_12px_0_#be185d] border-4 border-rose-200 flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                    <div class="text-6xl sm:text-7xl md:text-8xl mb-2 md:mb-4 transform group-hover:scale-110 transition-transform">
+                        🔺⭐
+                    </div>
+                    <span class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide drop-shadow">Shapes</span>
+                    <span class="text-sm sm:text-base md:text-lg font-medium text-rose-100 mt-1">Circle, Star & Heart</span>
+                </button>
+
+                <!-- Card 2: Numbers -->
+                <button onclick="startGame('numbers')" class="toy-btn group bg-gradient-to-br from-amber-400 to-orange-500 rounded-[2.2rem] p-5 md:p-8 shadow-[0_12px_0_#c2410c] border-4 border-amber-200 flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                    <div class="text-6xl sm:text-7xl md:text-8xl mb-2 md:mb-4 transform group-hover:scale-110 transition-transform">
+                        1️⃣🍎
+                    </div>
+                    <span class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide drop-shadow">Numbers</span>
+                    <span class="text-sm sm:text-base md:text-lg font-medium text-amber-100 mt-1">Count 1 to 10</span>
+                </button>
+
+                <!-- Card 3: Letters -->
+                <button onclick="startGame('letters')" class="toy-btn group bg-gradient-to-br from-sky-400 to-blue-600 rounded-[2.2rem] p-5 md:p-8 shadow-[0_12px_0_#1d4ed8] border-4 border-sky-200 flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                    <div class="text-6xl sm:text-7xl md:text-8xl mb-2 md:mb-4 transform group-hover:scale-110 transition-transform">
+                        🔤🐱
+                    </div>
+                    <span class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide drop-shadow">Letters</span>
+                    <span class="text-sm sm:text-base md:text-lg font-medium text-sky-100 mt-1">A to Z Phonics</span>
+                </button>
+
+                <!-- Card 4: Colors -->
+                <button onclick="startGame('colors')" class="toy-btn group bg-gradient-to-br from-emerald-400 to-teal-600 rounded-[2.2rem] p-5 md:p-8 shadow-[0_12px_0_#0f766e] border-4 border-emerald-200 flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                    <div class="text-6xl sm:text-7xl md:text-8xl mb-2 md:mb-4 transform group-hover:scale-110 transition-transform">
+                        🎨🌈
+                    </div>
+                    <span class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide drop-shadow">Colors</span>
+                    <span class="text-sm sm:text-base md:text-lg font-medium text-emerald-100 mt-1">Red, Blue & Yellow</span>
+                </button>
+
+            </div>
+        </section>
+
+        <!-- 2. ACTIVE MINI-GAME ARENA -->
+        <section id="game-view" class="w-full h-full hidden flex-col justify-center items-center">
+            <!-- Dynamic 3-Choice Toddler Grid (Huge Tap Targets) -->
+            <div id="choices-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-8 w-full max-w-5xl h-full max-h-[72vh] items-stretch justify-center py-2">
+                <!-- Cards injected dynamically by JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Gentle Encouragement Toast (Replaces any harsh error boxes) -->
+    <div id="encouragement-pill" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 border-4 border-amber-300 px-8 py-3 rounded-full shadow-xl text-2xl font-bold text-slate-700 opacity-0 pointer-events-none transition-opacity duration-300 z-30 flex items-center gap-3">
+        <span id="encouragement-emoji">🤗</span>
+        <span id="encouragement-text">Try again, Shasvi!</span>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. OFFLINE WEB AUDIO SYNTHESIZER (Chimes, Pops, Fanfare, Gentle Boop)
+         * ============================================================================
+         */
+        class ToddlerAudioEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Cheerful bubble pop on tap
+            playPop() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                const now = this.ctx.currentTime;
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.exponentialRampToValueAtTime(680, now + 0.12);
+                
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.13);
+            }
+
+            // Gentle soft marimba wobble for wrong guess (never harsh!)
+            playGentleBoop() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                const now = this.ctx.currentTime;
+                osc.frequency.setValueAtTime(240, now);
+                osc.frequency.linearRampToValueAtTime(190, now + 0.22);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            // Bright sparkly fanfare arpeggio for correct answer
+            playCelebration() {
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                const now = this.ctx.currentTime;
+
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    
+                    const startTime = now + idx * 0.09;
+                    osc.frequency.setValueAtTime(freq, startTime);
+
+                    gain.gain.setValueAtTime(0.01, startTime);
+                    gain.gain.linearRampToValueAtTime(0.28, startTime + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.46);
+                });
+            }
+        }
+
+        const soundFX = new ToddlerAudioEngine();
+
+        /**
+         * ============================================================================
+         * 2. ENTHUSIASTIC WEB SPEECH ENGINE (Optimized for Toddler Clarity)
+         * ============================================================================
+         */
+        let preferredVoice = null;
+
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            // Prefer friendly, warm English voices available on iPadOS (Samantha, Karen, Moira, etc.)
+            preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Google US English')))
+                          || voices.find(v => v.lang.startsWith('en'));
+        }
+        if ('speechSynthesis' in window) {
+            loadVoices();
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        function speakPrompt(text, rate = 0.92, pitch = 1.18) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel(); // Interrupt stale speech cleanly
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (preferredVoice) utterance.voice = preferredVoice;
+            utterance.rate = rate;   // Slightly slower so a 2.5yo catches every word
+            utterance.pitch = pitch; // Warm, upbeat, friendly inflection
+            utterance.volume = 1.0;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        /**
+         * ============================================================================
+         * 3. CURRICULUM DATA (Shapes, Numbers 1-10, Letters A-Z, Colors)
+         * ============================================================================
+         */
+        const SHAPES_DATA = [
+            {
+                id: 'circle',
+                name: 'Circle',
+                color: '#FF4D6D',
+                bg: 'bg-rose-50 border-rose-300 shadow-[0_12px_0_#fda4af]',
+                svg: `<svg viewBox="0 0 120 120" class="w-32 h-32 md:w-40 md:h-40 drop-shadow-md"><circle cx="60" cy="60" r="48" fill="#FF4D6D" stroke="#FFF" stroke-width="6"/></svg>`
+            },
+            {
+                id: 'square',
+                name: 'Square',
+                color: '#3B82F6',
+                bg: 'bg-blue-50 border-blue-300 shadow-[0_12px_0_#93c5fd]',
+                svg: `<svg viewBox="0 0 120 120" class="w-32 h-32 md:w-40 md:h-40 drop-shadow-md"><rect x="16" y="16" width="88" height="88" rx="16" fill="#3B82F6" stroke="#FFF" stroke-width="6"/></svg>`
+            },
+            {
+                id: 'triangle',
+                name: 'Triangle',
+                color: '#10B981',
+                bg: 'bg-emerald-50 border-emerald-300 shadow-[0_12px_0_#6ee7b7]',
+                svg: `<svg viewBox="0 0 120 120" class="w-32 h-32 md:w-40 md:h-40 drop-shadow-md"><polygon points="60,14 108,102 12,102" stroke-linejoin="round" fill="#10B981" stroke="#FFF" stroke-width="6"/></svg>`
+            },
+            {
+                id: 'star',
+                name: 'Star',
+                color: '#F59E0B',
+                bg: 'bg-amber-50 border-amber-300 shadow-[0_12px_0_#fcd34d]',
+                svg: `<svg viewBox="0 0 120 120" class="w-32 h-32 md:w-40 md:h-40 drop-shadow-md"><polygon points="60,10 75,43 111,48 85,73 91,109 60,92 29,109 35,73 9,48 45,43" stroke-linejoin="round" fill="#F59E0B" stroke="#FFF" stroke-width="5"/></svg>`
+            },
+            {
+                id: 'heart',
+                name: 'Heart',
+                color: '#EC4899',
+                bg: 'bg-pink-50 border-pink-300 shadow-[0_12px_0_#f9a8d4]',
+                svg: `<svg viewBox="0 0 120 120" class="w-32 h-32 md:w-40 md:h-40 drop-shadow-md"><path d="M60 104 C60 104 14 74 14 40 C14 23 27 12 42 12 C51 12 57 17 60 23 C63 17 69 12 78 12 C93 12 106 23 106 40 C106 74 60 104 60 104 Z" fill="#EC4899" stroke="#FFF" stroke-width="5"/></svg>`
+            }
+        ];
+
+        const COUNT_EMOJIS = ['🍎', '⭐', '🍓', '🐶', '🦆', '🎈', '🍪', '🦋', '🚗', '🍌'];
+        const NUMBERS_DATA = Array.from({ length: 10 }, (_, i) => {
+            const num = i + 1;
+            return {
+                id: `num-${num}`,
+                value: num,
+                name: `${num}`,
+                emoji: COUNT_EMOJIS[i]
+            };
+        });
+
+        const LETTERS_DATA = [
+            { letter: 'A', word: 'Apple', phonetic: 'Aaa', emoji: '🍎' },
+            { letter: 'B', word: 'Ball', phonetic: 'Buh', emoji: '⚽' },
+            { letter: 'C', word: 'Cat', phonetic: 'Kuh', emoji: '🐱' },
+            { letter: 'D', word: 'Dog', phonetic: 'Duh', emoji: '🐶' },
+            { letter: 'E', word: 'Elephant', phonetic: 'Eh', emoji: '🐘' },
+            { letter: 'F', word: 'Fish', phonetic: 'Fff', emoji: '🐠' },
+            { letter: 'G', word: 'Grapes', phonetic: 'Guh', emoji: '🍇' },
+            { letter: 'H', word: 'Hat', phonetic: 'Huh', emoji: '🎩' },
+            { letter: 'I', word: 'Ice Cream', phonetic: 'Iih', emoji: '🍦' },
+            { letter: 'J', word: 'Juice', phonetic: 'Juh', emoji: '🧃' },
+            { letter: 'K', word: 'Kite', phonetic: 'Kuh', emoji: '🪁' },
+            { letter: 'L', word: 'Lion', phonetic: 'Lll', emoji: '🦁' },
+            { letter: 'M', word: 'Monkey', phonetic: 'Mmm', emoji: '🐵' },
+            { letter: 'N', word: 'Nest', phonetic: 'Nnn', emoji: '🪺' },
+            { letter: 'O', word: 'Orange', phonetic: 'Aww', emoji: '🍊' },
+            { letter: 'P', word: 'Pig', phonetic: 'Puh', emoji: '🐷' },
+            { letter: 'Q', word: 'Queen', phonetic: 'Kwuh', emoji: '👑' },
+            { letter: 'R', word: 'Rabbit', phonetic: 'Rrr', emoji: '🐰' },
+            { letter: 'S', word: 'Sun', phonetic: 'Sss', emoji: '☀️' },
+            { letter: 'T', word: 'Train', phonetic: 'Tuh', emoji: '🚂' },
+            { letter: 'U', word: 'Umbrella', phonetic: 'Uh', emoji: '☂️' },
+            { letter: 'V', word: 'Violin', phonetic: 'Vvv', emoji: '🎻' },
+            { letter: 'W', word: 'Whale', phonetic: 'Wuh', emoji: '🐳' },
+            { letter: 'X', word: 'Xylophone', phonetic: 'Zzz', emoji: '🎹' },
+            { letter: 'Y', word: 'Yo-Yo', phonetic: 'Yuh', emoji: '🪀' },
+            { letter: 'Z', word: 'Zebra', phonetic: 'Zzz', emoji: '🦓' }
+        ];
+
+        const COLORS_DATA = [
+            { id: 'red', name: 'Red', hex: '#EF4444', shadow: '#b91c1c', emoji: '🍓' },
+            { id: 'blue', name: 'Blue', hex: '#3B82F6', shadow: '#1d4ed8', emoji: '🐳' },
+            { id: 'yellow', name: 'Yellow', hex: '#FACC15', shadow: '#ca8a04', emoji: '🍌' },
+            { id: 'green', name: 'Green', hex: '#22C55E', shadow: '#15803d', emoji: '🐸' },
+            { id: 'orange', name: 'Orange', hex: '#F97316', shadow: '#c2410c', emoji: '🍊' },
+            { id: 'purple', name: 'Purple', hex: '#A855F7', shadow: '#7e22ce', emoji: '🍇' }
+        ];
+
+        const PRAISE_PHRASES = [
+            "Yay! Great job Shasvi!",
+            "Woohoo! You did it Shasvi!",
+            "Super star Shasvi!",
+            "Amazing job Shasvi!",
+            "Hooray! That's right Shasvi!"
+        ];
+
+        const GENTLE_PROMPTS = [
+            "Oopsie! Let's try again!",
+            "Almost! Look closely Shasvi!",
+            "You can do it! Try another one!"
+        ];
+
+        /**
+         * ============================================================================
+         * 4. GAME STATE & ROUND GENERATOR
+         * ============================================================================
+         */
+        let currentGame = null;
+        let currentTarget = null;
+        let currentPromptSpeech = '';
+        let starsEarned = 0;
+        let isTransitioning = false;
+        let lastTargetId = null;
+
+        // Shuffle helper
+        function shuffle(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        // Pick 3 unique items ensuring the target isn't identical to the previous round
+        function pickThreeChoices(pool, idKey) {
+            let candidates = pool.filter(item => item[idKey] !== lastTargetId);
+            if (candidates.length === 0) candidates = pool;
+            const target = candidates[Math.floor(Math.random() * candidates.length)];
+            lastTargetId = target[idKey];
+
+            const distractors = shuffle(pool.filter(item => item[idKey] !== target[idKey])).slice(0, 2);
+            return {
+                target,
+                choices: shuffle([target, ...distractors])
+            };
+        }
+
+        function startGame(gameType) {
+            soundFX.playPop();
+            currentGame = gameType;
+            lastTargetId = null;
+
+            document.getElementById('home-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+            document.getElementById('game-view').classList.add('flex');
+            document.getElementById('top-bar').classList.remove('hidden');
+
+            nextRound();
+        }
+
+        function returnHome() {
+            soundFX.playPop();
+            currentGame = null;
+            window.speechSynthesis.cancel();
+
+            document.getElementById('game-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('flex');
+            document.getElementById('top-bar').classList.add('hidden');
+            document.getElementById('home-view').classList.remove('hidden');
+
+            speakPrompt("Hi Shasvi! Pick a game to play!");
+        }
+
+        function nextRound() {
+            isTransitioning = false;
+            const grid = document.getElementById('choices-grid');
+            grid.innerHTML = '';
+
+            if (currentGame === 'shapes') {
+                const { target, choices } = pickThreeChoices(SHAPES_DATA, 'id');
+                currentTarget = target.id;
+                currentPromptSpeech = `Hi Shasvi! Can you find the ${target.name}?`;
+                document.getElementById('prompt-text').textContent = `Find the ${target.name}!`;
+
+                choices.forEach(item => {
+                    const btn = createCardButton(item.id, item.bg);
+                    btn.innerHTML = `
+                        <div class="flex-1 flex items-center justify-center">${item.svg}</div>
+                        <span class="text-3xl md:text-4xl font-bold text-slate-800 mt-3">${item.name}</span>
+                    `;
+                    grid.appendChild(btn);
+                });
+            } 
+            else if (currentGame === 'numbers') {
+                const { target, choices } = pickThreeChoices(NUMBERS_DATA, 'id');
+                currentTarget = target.id;
+                currentPromptSpeech = `Shasvi, where is the number ${target.value}?`;
+                document.getElementById('prompt-text').textContent = `Find number ${target.value}!`;
+
+                choices.forEach(item => {
+                    const btn = createCardButton(item.id, 'bg-white border-amber-300 shadow-[0_12px_0_#fcd34d]');
+                    // Render countable objects cleanly in a flexible wrap grid
+                    const objectsHTML = Array(item.value).fill(`<span class="text-3xl sm:text-4xl md:text-5xl leading-none">${item.emoji}</span>`).join('');
+                    btn.innerHTML = `
+                        <span class="text-6xl sm:text-7xl md:text-8xl font-bold text-orange-500 leading-none mb-3">${item.value}</span>
+                        <div class="flex flex-wrap items-center justify-center gap-1.5 max-w-[220px] px-2">
+                            ${objectsHTML}
+                        </div>
+                    `;
+                    grid.appendChild(btn);
+                });
+            } 
+            else if (currentGame === 'letters') {
+                const { target, choices } = pickThreeChoices(LETTERS_DATA, 'letter');
+                currentTarget = target.letter;
+                currentPromptSpeech = `Shasvi, find the letter ${target.letter}! ${target.letter} is for ${target.word}!`;
+                document.getElementById('prompt-text').textContent = `Find "${target.letter}" for ${target.word}!`;
+
+                choices.forEach(item => {
+                    const btn = createCardButton(item.letter, 'bg-white border-sky-300 shadow-[0_12px_0_#7dd3fc]');
+                    btn.innerHTML = `
+                        <span class="text-6xl sm:text-7xl md:text-8xl font-bold text-blue-600 leading-none">${item.letter}</span>
+                        <span class="text-5xl sm:text-6xl my-2">${item.emoji}</span>
+                        <span class="text-2xl md:text-3xl font-bold text-slate-600">${item.word}</span>
+                    `;
+                    grid.appendChild(btn);
+                });
+            } 
+            else if (currentGame === 'colors') {
+                const { target, choices } = pickThreeChoices(COLORS_DATA, 'id');
+                currentTarget = target.id;
+                currentPromptSpeech = `Hi Shasvi! Can you tap the color ${target.name}?`;
+                document.getElementById('prompt-text').textContent = `Tap ${target.name}!`;
+
+                choices.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.dataset.choiceId = item.id;
+                    btn.style.backgroundColor = item.hex;
+                    btn.style.boxShadow = `0 12px 0 ${item.shadow}`;
+                    btn.className = `toy-btn rounded-[2.5rem] p-6 border-4 border-white/80 flex flex-col items-center justify-center cursor-pointer transition-transform`;
+                    btn.innerHTML = `
+                        <span class="text-6xl sm:text-7xl md:text-8xl mb-3 drop-shadow">${item.emoji}</span>
+                        <span class="bg-white/95 px-6 py-2 rounded-full text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 shadow-sm">${item.name}</span>
+                    `;
+                    btn.addEventListener('click', () => handleChoiceTap(btn, item.id));
+                    grid.appendChild(btn);
+                });
+            }
+
+            speakPrompt(currentPromptSpeech);
+        }
+
+        function createCardButton(choiceId, extraClasses) {
+            const btn = document.createElement('button');
+            btn.dataset.choiceId = choiceId;
+            btn.className = `toy-btn rounded-[2.5rem] p-5 md:p-6 border-4 flex flex-col items-center justify-center cursor-pointer ${extraClasses}`;
+            btn.addEventListener('click', () => handleChoiceTap(btn, choiceId));
+            return btn;
+        }
+
+        /**
+         * ============================================================================
+         * 5. TAP INTERACTION & CELEBRATION LOGIC
+         * ============================================================================
+         */
+        function handleChoiceTap(btnElement, tappedId) {
+            if (isTransitioning) return;
+
+            if (tappedId === currentTarget) {
+                // CORRECT!
+                isTransitioning = true;
+                starsEarned++;
+                document.getElementById('star-count').textContent = starsEarned;
+
+                soundFX.playCelebration();
+                btnElement.classList.add('animate-celebrate', 'ring-8', 'ring-amber-300');
+                launchConfetti();
+
+                const praise = PRAISE_PHRASES[Math.floor(Math.random() * PRAISE_PHRASES.length)];
+                speakPrompt(praise, 0.96, 1.25);
+
+                setTimeout(() => {
+                    nextRound();
+                }, 2300);
+            } else {
+                // GENTLE ENCOURAGEMENT (No harsh buzzers, soft shake + repeat prompt)
+                soundFX.playGentleBoop();
+                btnElement.classList.remove('animate-wobble');
+                void btnElement.offsetWidth; // Trigger reflow to restart animation
+                btnElement.classList.add('animate-wobble');
+
+                showEncouragementToast();
+                const gentle = GENTLE_PROMPTS[Math.floor(Math.random() * GENTLE_PROMPTS.length)];
+                speakPrompt(`${gentle} ${currentPromptSpeech}`);
+            }
+        }
+
+        function showEncouragementToast() {
+            const pill = document.getElementById('encouragement-pill');
+            const emojis = ['🤗', '🌟', '💛', '🌈'];
+            document.getElementById('encouragement-emoji').textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            pill.classList.remove('opacity-0');
+            clearTimeout(pill._hideTimer);
+            pill._hideTimer = setTimeout(() => {
+                pill.classList.add('opacity-0');
+            }, 1800);
+        }
+
+        /**
+         * ============================================================================
+         * 6. PARENT-LOCK HOME BUTTON (Hold 1.5s to prevent toddler accidental exit)
+         * ============================================================================
+         */
+        const homeBtn = document.getElementById('home-lock-btn');
+        const lockRing = document.getElementById('lock-ring');
+        const CIRCUMFERENCE = 2 * Math.PI * 16; // ~100.53
+        let holdInterval = null;
+        let holdStartTime = 0;
+        const HOLD_DURATION = 1500; // 1.5 seconds
+
+        function startHold(e) {
+            e.preventDefault();
+            holdStartTime = Date.now();
+            clearInterval(holdInterval);
+
+            holdInterval = setInterval(() => {
+                const elapsed = Date.now() - holdStartTime;
+                const progress = Math.min(elapsed / HOLD_DURATION, 1);
+                lockRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+
+                if (progress >= 1) {
+                    clearInterval(holdInterval);
+                    lockRing.style.strokeDashoffset = CIRCUMFERENCE;
+                    returnHome();
+                }
+            }, 30);
+        }
+
+        function cancelHold() {
+            clearInterval(holdInterval);
+            lockRing.style.strokeDashoffset = CIRCUMFERENCE;
+        }
+
+        homeBtn.addEventListener('mousedown', startHold);
+        homeBtn.addEventListener('touchstart', startHold, { passive: false });
+        homeBtn.addEventListener('mouseup', cancelHold);
+        homeBtn.addEventListener('mouseleave', cancelHold);
+        homeBtn.addEventListener('touchend', cancelHold);
+        homeBtn.addEventListener('touchcancel', cancelHold);
+
+        // Repeat prompt button
+        document.getElementById('repeat-prompt-btn').addEventListener('click', () => {
+            soundFX.playPop();
+            if (currentPromptSpeech) {
+                speakPrompt(currentPromptSpeech);
+            }
+        });
+
+        // Start overlay unlock button (initializes iPad audio + speech cleanly)
+        document.getElementById('start-play-btn').addEventListener('click', () => {
+            soundFX.init();
+            soundFX.playCelebration();
+            document.getElementById('start-overlay').classList.add('hidden');
+            speakPrompt("Hi Shasvi! Welcome! Tap a colorful card to play!");
+        });
+
+        /**
+         * ============================================================================
+         * 7. CONFETTI BURST PARTICLE SYSTEM (Canvas)
+         * ============================================================================
+         */
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationFrameId = null;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function launchConfetti() {
+            const colors = ['#FF4D6D', '#FACC15', '#3B82F6', '#10B981', '#A855F7', '#F97316'];
+            for (let i = 0; i < 85; i++) {
+                particles.push({
+                    x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+                    y: canvas.height / 2 + 40,
+                    vx: (Math.random() - 0.5) * 18,
+                    vy: (Math.random() - 1.2) * 18 - 4,
+                    size: Math.random() * 12 + 8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rotSpeed: (Math.random() - 0.5) * 14,
+                    shape: Math.random() > 0.5 ? 'circle' : 'rect'
+                });
+            }
+            if (!animationFrameId) {
+                animateConfetti();
+            }
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.45; // Gravity
+                p.vx *= 0.98;
+                p.rotation += p.rotSpeed;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rotation * Math.PI) / 180);
+                ctx.fillStyle = p.color;
+
+                if (p.shape === 'circle') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+                }
+                ctx.restore();
+
+                if (p.y > canvas.height + 40) {
+                    particles.splice(idx, 1);
+                }
+            });
+
+            if (particles.length > 0) {
+                animationFrameId = requestAnimationFrame(animateConfetti);
+            } else {
+                animationFrameId = null;
+            }
+        }
+    </script>
+</body>
+</html>
